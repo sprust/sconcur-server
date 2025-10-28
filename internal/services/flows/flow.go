@@ -1,8 +1,11 @@
 package flows
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"sconcur/internal/services/dto"
+	"sconcur/internal/services/logging"
 	"sconcur/pkg/foundation/errs"
 	"sync"
 )
@@ -12,18 +15,28 @@ import (
 type Flow struct {
 	mutex sync.Mutex
 
-	active    map[string]*dto.Task
-	completed map[string]*dto.Task
+	active map[string]*dto.Task
 
 	totalCount     int
 	activeCount    int
 	completedCount int
+
+	resultsChannel chan *dto.Result
+
+	ctx       context.Context
+	ctxCancel context.CancelFunc
 }
 
 func NewFlow() *Flow {
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	return &Flow{
-		active:    make(map[string]*dto.Task),
-		completed: make(map[string]*dto.Task),
+		active: make(map[string]*dto.Task),
+
+		ctx:       ctx,
+		ctxCancel: ctxCancel,
+
+		resultsChannel: make(chan *dto.Result),
 	}
 }
 
@@ -61,25 +74,23 @@ func (f *Flow) AddResult(result *dto.Result) error {
 	delete(f.active, result.TaskKey)
 	f.activeCount--
 
-	f.completed[result.TaskKey] = task
 	f.completedCount++
+
+	f.resultsChannel <- result
+
+	slog.Debug(
+		logging.FormatFlowTaskPrefix(
+			result.FlowUuid,
+			result.TaskKey,
+			"pushed result to channel",
+		),
+	)
 
 	return nil
 }
 
-func (f *Flow) PullResult() *dto.Task {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
-
-	for key, task := range f.completed {
-		delete(f.completed, key)
-		f.completedCount--
-		f.totalCount--
-
-		return task
-	}
-
-	return nil
+func (f *Flow) Listen() <-chan *dto.Result {
+	return f.resultsChannel
 }
 
 func (f *Flow) GetTotalCount() int {
@@ -87,4 +98,12 @@ func (f *Flow) GetTotalCount() int {
 	defer f.mutex.Unlock()
 
 	return f.totalCount
+}
+
+func (f *Flow) Stop() {
+	f.ctxCancel()
+}
+
+func (f *Flow) StopListener() <-chan struct{} {
+	return f.ctx.Done()
 }

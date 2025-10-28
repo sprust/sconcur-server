@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sconcur/internal/services/contracts"
 	"sconcur/internal/services/dto"
+	"sconcur/internal/services/flows"
 	"sconcur/internal/services/logging"
 	"time"
 )
@@ -14,11 +15,13 @@ import (
 var _ contracts.MessageHandler = (*Feature)(nil)
 
 type Feature struct {
-	Seconds int
+	flow *flows.Flow
 }
 
-func New() *Feature {
-	return &Feature{}
+func New(flow *flows.Flow) *Feature {
+	return &Feature{
+		flow: flow,
+	}
 }
 
 func (s *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result {
@@ -52,6 +55,23 @@ func (s *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 	}
 
 	select {
+	case <-s.flow.StopListener():
+		slog.Debug(
+			logging.FormatFlowTaskPrefix(
+				message.FlowUuid,
+				message.TaskKey,
+				"sleep: closing by flow stop",
+			),
+		)
+
+		return &dto.Result{
+			FlowUuid: message.FlowUuid,
+			Method:   message.Method,
+			TaskKey:  message.TaskKey,
+			Waitable: false,
+			IsError:  true,
+			Payload:  "closed by flow stop",
+		}
 	case <-ctx.Done():
 		slog.Warn(
 			logging.FormatFlowTaskPrefix(
@@ -65,7 +85,7 @@ func (s *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 			FlowUuid: message.FlowUuid,
 			Method:   message.Method,
 			TaskKey:  message.TaskKey,
-			Waitable: true,
+			Waitable: false,
 			IsError:  true,
 			Payload:  "closed by context",
 		}

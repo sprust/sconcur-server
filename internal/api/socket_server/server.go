@@ -112,7 +112,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) error {
 		return errs.Err(err)
 	}
 
-	slog.Debug("Received message: " + fmt.Sprint(message))
+	slog.Debug(fmt.Sprintf("received message: %+v", message))
 
 	err = s.handler.Handle(ctx, transport, message)
 

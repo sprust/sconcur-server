@@ -3,10 +3,12 @@ package connection
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"sconcur/internal/services/dto"
 	"sconcur/pkg/foundation/errs"
+	"time"
 )
 
 type Transport struct {
@@ -20,15 +22,30 @@ func NewTransport(conn net.Conn) *Transport {
 }
 
 func (t *Transport) IsConnected() bool {
-	buffer := make([]byte, 1024)
-
-	_, err := t.conn.Read(buffer)
-
-	if err != nil {
+	if t.conn == nil {
 		return false
 	}
 
-	return true
+	one := make([]byte, 1)
+	_ = t.conn.SetReadDeadline(time.Now().Add(1 * time.Millisecond))
+
+	_, err := t.conn.Read(one)
+
+	_ = t.conn.SetReadDeadline(time.Time{})
+
+	if err == io.EOF {
+		return false
+	}
+
+	var netErr net.Error
+
+	ok := errors.As(err, &netErr)
+
+	if ok && netErr.Timeout() {
+		return true
+	}
+
+	return err == nil
 }
 
 func (t *Transport) ReadMessage() (*dto.Message, error) {
