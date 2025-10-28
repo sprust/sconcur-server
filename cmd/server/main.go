@@ -39,7 +39,7 @@ func main() {
 
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 
-	server := socket_server.NewServer("tcp", ":"+os.Getenv("SOCKET_PORT"))
+	server := socket_server.NewServer(os.Getenv("SOCKET_NETWORK"), os.Getenv("SOCKET_ADDRESS"))
 
 	done := make(chan error, 1)
 

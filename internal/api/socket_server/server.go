@@ -36,7 +36,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return errs.Err(err)
 	}
 
-	slog.Info("Socket server started on " + s.network + "://" + s.address)
+	slog.Info("Socket server started on " + s.network + "//" + s.address)
 
 	s.listener = listener
 
