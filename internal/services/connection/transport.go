@@ -3,7 +3,6 @@ package connection
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"sconcur/internal/services/dto"
@@ -90,9 +89,6 @@ func (t *Transport) WriteResult(result *dto.Result) error {
 
 	lengthBuf := make([]byte, 4)
 	binary.BigEndian.PutUint32(lengthBuf, dataLength)
-
-	fmt.Println(uint32(len(payload)))
-	fmt.Println(string(dataLength) + string(payload))
 
 	_, err = t.conn.Write(
 		[]byte(

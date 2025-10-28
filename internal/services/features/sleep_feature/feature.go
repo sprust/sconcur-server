@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sconcur/internal/services/contracts"
 	"sconcur/internal/services/dto"
+	"sconcur/internal/services/logging"
 	"time"
 )
 
@@ -26,6 +27,17 @@ func (s *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 	err := json.Unmarshal([]byte(message.Payload), &payload)
 
 	if err != nil {
+		slog.Warn(
+			logging.FormatFlowTaskPrefix(
+				message.FlowUuid,
+				message.TaskKey,
+				fmt.Sprintf(
+					"sleep: parse error: %s",
+					err.Error(),
+				),
+			),
+		)
+
 		return &dto.Result{
 			FlowUuid: message.FlowUuid,
 			Method:   message.Method,
@@ -42,10 +54,10 @@ func (s *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 	select {
 	case <-ctx.Done():
 		slog.Warn(
-			fmt.Sprintf(
-				"Sleep feature for flow [%s] and task [%s] closing by context",
+			logging.FormatFlowTaskPrefix(
 				message.FlowUuid,
 				message.TaskKey,
+				"sleep: closing by context",
 			),
 		)
 
@@ -59,11 +71,13 @@ func (s *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 		}
 	case <-time.After(time.Duration(payload.Milliseconds) * time.Microsecond):
 		slog.Debug(
-			fmt.Sprintf(
-				"Sleep feature for flow [%s] and task [%s] woke up after [%dms]",
+			logging.FormatFlowTaskPrefix(
 				message.FlowUuid,
 				message.TaskKey,
-				payload.Milliseconds,
+				fmt.Sprintf(
+					"sleep: woke up after [%dms]",
+					payload.Milliseconds,
+				),
 			),
 		)
 

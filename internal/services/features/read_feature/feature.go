@@ -2,12 +2,12 @@ package read_feature
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sconcur/internal/services/connection"
 	"sconcur/internal/services/contracts"
 	"sconcur/internal/services/dto"
 	"sconcur/internal/services/flows"
+	"sconcur/internal/services/logging"
 	"sconcur/pkg/foundation/errs"
 	"sync/atomic"
 	"time"
@@ -34,7 +34,12 @@ func (f *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 	go func() {
 		select {
 		case <-ctx.Done():
-			slog.Debug("Read feature for flow [" + flowUuid + "] closing by context")
+			slog.Debug(
+				logging.FormatFlowPrefix(
+					flowUuid,
+					"closing by context",
+				),
+			)
 
 			f.closing.Store(true)
 		}
@@ -52,7 +57,12 @@ func (f *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 					continue
 				}
 
-				slog.Debug("Read feature for flow [" + flowUuid + "] closing by disconnected client")
+				slog.Debug(
+					logging.FormatFlowPrefix(
+						flowUuid,
+						"closing by disconnected client",
+					),
+				)
 
 				f.closing.Store(true)
 
@@ -60,6 +70,30 @@ func (f *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 			}
 		}
 	}(f)
+
+	err := f.transport.WriteResult(
+		&dto.Result{
+			FlowUuid: message.FlowUuid,
+			Method:   message.Method,
+			TaskKey:  message.TaskKey,
+			Payload:  message.Payload,
+			IsError:  false,
+			Waitable: false,
+		},
+	)
+
+	if err != nil {
+		return &dto.Result{
+			FlowUuid: flowUuid,
+			Method:   message.Method,
+			TaskKey:  message.TaskKey,
+			IsError:  true,
+			Payload: logging.FormatFlowPrefix(
+				flowUuid,
+				"can't send the handshake",
+			),
+		}
+	}
 
 	for {
 		result := f.flows.PullResult(flowUuid)
@@ -73,17 +107,23 @@ func (f *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 		}
 
 		slog.Debug(
-			fmt.Sprintf(
-				"Pull result for flow [%s] and task [%s]",
+			logging.FormatFlowTaskPrefix(
 				flowUuid,
 				result.TaskKey,
+				"pull result",
 			),
 		)
 
 		err := f.transport.WriteResult(result)
 
 		if err != nil {
-			slog.Error(errs.Err(err).Error())
+			slog.Error(
+				logging.FormatFlowTaskPrefix(
+					flowUuid,
+					result.TaskKey,
+					errs.Err(err).Error(),
+				),
+			)
 		}
 	}
 

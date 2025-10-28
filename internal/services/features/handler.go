@@ -2,8 +2,6 @@ package features
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
 	"sconcur/internal/services/connection"
 	"sconcur/internal/services/contracts"
 	"sconcur/internal/services/dto"
@@ -28,8 +26,6 @@ func (h *Handler) Handle(ctx context.Context, transport *connection.Transport, m
 	h.flows.AddMessage(message)
 
 	result := h.detectHandler(transport, message.Method).Handle(ctx, message)
-
-	slog.Debug("Result: " + fmt.Sprint(result))
 
 	if result.Waitable {
 		h.flows.AddResult(result)
