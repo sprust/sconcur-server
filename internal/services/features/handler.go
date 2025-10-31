@@ -4,6 +4,7 @@ import (
 	"sconcur/internal/services/connection"
 	"sconcur/internal/services/contracts"
 	"sconcur/internal/services/dto"
+	"sconcur/internal/services/features/mongodb_feature"
 	"sconcur/internal/services/features/sleep_feature"
 	"sconcur/internal/services/features/unknown_feature"
 	"sconcur/internal/services/flows"
@@ -93,6 +94,10 @@ func (h *Handler) Stop() {
 func (h *Handler) detectHandler(method types.Method) (contracts.MessageHandler, error) {
 	if method == 2 {
 		return sleep_feature.New(), nil
+	}
+
+	if method == 3 {
+		return mongodb_feature.New(), nil
 	}
 
 	return unknown_feature.New(), nil
