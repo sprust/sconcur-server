@@ -18,7 +18,7 @@ type Server struct {
 	address  string
 	handler  *features.Handler
 	listener net.Listener
-	closing  atomic.Bool
+	closed   atomic.Bool
 }
 
 func NewServer(network string, address string) *Server {
@@ -45,11 +45,7 @@ func (s *Server) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			slog.Warn("Shutting down [socket server] by context")
 
-			s.closing.Store(true)
-
-			if s.listener != nil {
-				_ = s.listener.Close()
-			}
+			s.stop()
 		}
 	}(ctx, s)
 
@@ -57,7 +53,7 @@ func (s *Server) Run(ctx context.Context) error {
 		conn, err := listener.Accept()
 
 		if err != nil {
-			if s.closing.Load() {
+			if s.closed.Load() {
 				break
 			}
 
@@ -71,13 +67,19 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 
 		go func(ctx context.Context, s *Server, conn net.Conn) {
-			err := s.handleConnection(ctx, conn)
+			err := s.handleConnection(conn)
 
 			if err != nil {
 				slog.Error(err.Error())
 			}
 		}(ctx, s, conn)
 	}
+
+	return nil
+}
+
+func (s *Server) stop() {
+	s.handler.Stop()
 
 	for {
 		flowsCount := s.handler.GetFlowsCount()
@@ -86,7 +88,7 @@ func (s *Server) Run(ctx context.Context) error {
 			break
 		}
 
-		slog.Info(
+		slog.Warn(
 			fmt.Sprintf(
 				"Waiting for flows finishing [%d]",
 				flowsCount,
@@ -96,10 +98,14 @@ func (s *Server) Run(ctx context.Context) error {
 		time.Sleep(1 * time.Second)
 	}
 
-	return nil
+	s.closed.Store(true)
+
+	if s.listener != nil {
+		_ = s.listener.Close()
+	}
 }
 
-func (s *Server) handleConnection(ctx context.Context, conn net.Conn) error {
+func (s *Server) handleConnection(conn net.Conn) error {
 	transport := connection.NewTransport(conn)
 
 	defer func(transport *connection.Transport) {
@@ -114,7 +120,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) error {
 
 	slog.Debug(fmt.Sprintf("received message: %+v", message))
 
-	err = s.handler.Handle(ctx, transport, message)
+	err = s.handler.Handle(transport, message)
 
 	if err != nil {
 		return errs.Err(err)

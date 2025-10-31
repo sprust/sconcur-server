@@ -1,7 +1,6 @@
 package sleep_feature
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -15,16 +14,13 @@ import (
 var _ contracts.MessageHandler = (*Feature)(nil)
 
 type Feature struct {
-	flow *flows.Flow
 }
 
-func New(flow *flows.Flow) *Feature {
-	return &Feature{
-		flow: flow,
-	}
+func New() *Feature {
+	return &Feature{}
 }
 
-func (s *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result {
+func (s *Feature) Handle(flow *flows.Flow, message *dto.Message) *dto.Result {
 	var payload Payload
 
 	err := json.Unmarshal([]byte(message.Payload), &payload)
@@ -55,7 +51,7 @@ func (s *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 	}
 
 	select {
-	case <-s.flow.StopListener():
+	case <-flow.StopListener():
 		slog.Debug(
 			logging.FormatFlowTaskPrefix(
 				message.FlowUuid,
@@ -71,23 +67,6 @@ func (s *Feature) Handle(ctx context.Context, message *dto.Message) *dto.Result 
 			Waitable: false,
 			IsError:  true,
 			Payload:  "closed by flow stop",
-		}
-	case <-ctx.Done():
-		slog.Warn(
-			logging.FormatFlowTaskPrefix(
-				message.FlowUuid,
-				message.TaskKey,
-				"sleep: closing by context",
-			),
-		)
-
-		return &dto.Result{
-			FlowUuid: message.FlowUuid,
-			Method:   message.Method,
-			TaskKey:  message.TaskKey,
-			Waitable: false,
-			IsError:  true,
-			Payload:  "closed by context",
 		}
 	case <-time.After(time.Duration(payload.Milliseconds) * time.Microsecond):
 		slog.Debug(

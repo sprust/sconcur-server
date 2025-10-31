@@ -1,10 +1,10 @@
 package contracts
 
 import (
-	"context"
 	"sconcur/internal/services/dto"
+	"sconcur/internal/services/flows"
 )
 
 type MessageHandler interface {
-	Handle(ctx context.Context, message *dto.Message) *dto.Result
+	Handle(flow *flows.Flow, message *dto.Message) *dto.Result
 }

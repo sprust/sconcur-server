@@ -1,10 +1,10 @@
 package unknown_feature
 
 import (
-	"context"
 	"fmt"
 	"sconcur/internal/services/contracts"
 	"sconcur/internal/services/dto"
+	"sconcur/internal/services/flows"
 )
 
 var _ contracts.MessageHandler = (*Feature)(nil)
@@ -17,7 +17,7 @@ func New() *Feature {
 	return &Feature{}
 }
 
-func (s *Feature) Handle(_ context.Context, message *dto.Message) *dto.Result {
+func (s *Feature) Handle(_ *flows.Flow, message *dto.Message) *dto.Result {
 	return &dto.Result{
 		FlowUuid: message.FlowUuid,
 		Method:   message.Method,

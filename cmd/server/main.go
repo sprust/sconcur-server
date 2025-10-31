@@ -39,7 +39,20 @@ func main() {
 
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 
-	server := socket_server.NewServer(os.Getenv("SOCKET_NETWORK"), os.Getenv("SOCKET_ADDRESS"))
+	network := os.Getenv("SOCKET_NETWORK")
+	address := os.Getenv("SOCKET_ADDRESS")
+
+	if network == "unix" {
+		if _, err := os.Stat(address); err == nil {
+			if err := os.Remove(address); err != nil {
+				panic(err)
+			}
+
+			slog.Warn("Removed old socket file: " + address)
+		}
+	}
+
+	server := socket_server.NewServer(network, address)
 
 	done := make(chan error, 1)
 
@@ -72,7 +85,7 @@ func main() {
 				}
 
 				slog.Warn("Completed successfully by signal")
-			case <-time.After(3 * time.Second):
+			case <-time.After(5 * time.Second):
 				slog.Error("shutdown by timeout")
 			}
 		}
